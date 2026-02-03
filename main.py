@@ -12,7 +12,7 @@ class SwingModel():
   '''
   def __init__(self, g: float = 9.81):
     assert isinstance(g, (float, np.floating)), "g should  be a positive float"
-    assert g > 0, "g should  be a positive float"
+    assert g > 0, "g should be a positive float"
 
     self.g = g
     self.r = None
@@ -31,17 +31,20 @@ class SwingModel():
   
   def set_r(self, r, h=1e-10):
     '''
-    Set the pendulum length function r(t) as a function of time.
-    Also evaluates r dot using finite difference methods.
+    Set the pendulum length function r(theta, theta_dot) as a function of theta, theta_dot.
+    Also evaluates partial derivatives using finite difference methods.
     
     Arguments:
-      - t: Function r(t)
-      - h: Step size for finite differenc r dot evaluation
+      - t: Function r(theta, theta_dot)
+      - h: Step size for finite difference evaluation
     '''
     assert callable(r), f"Expected function, got {type(r).__name__}"
 
     self.r = r
-    self.r_dot = lambda t: (r(t+h) - r(t)) / h
+
+    # Finite difference (central diff)
+    self.partialr_partialu = lambda u, v: (r(u + h, v) - r(u - h,v)) / 2*h
+    self.partialr_partialv = lambda u, v: (r(u, v + h) - r(u,v - h)) / 2*h
   
   def _dqdt(self, t, q):
     '''
@@ -53,7 +56,8 @@ class SwingModel():
       - q: Angle and angular velocity at which to evaluate dqdt
     '''
     theta, theta_dot = q
-    return np.array([theta_dot, -(2*self.r_dot(t)*theta_dot + self.g*np.sin(theta))/self.r(t)])
+    return np.array([theta_dot, 
+                     -(self.g*np.sin(theta) + 2*self.partialr_partialu(theta, theta_dot)*theta_dot**2)/(self.r(theta, theta_dot) + 2*self.partialr_partialv(theta, theta_dot)*theta_dot)])
   
   def solve(self, t_eval, q0, **kwargs):
     '''
@@ -82,7 +86,7 @@ if __name__ == "__main__":
   Swing = SwingModel()
   
   # Define pendulum length as a function of time
-  r = lambda t: 1 + .5*np.sin(np.sqrt(Swing.g)*t)
+  r = lambda theta, theta_dot: 1
   Swing.set_r(r)
 
   # Solve using solve_ivp
