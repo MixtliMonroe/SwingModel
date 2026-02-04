@@ -9,7 +9,7 @@ class SwingModel():
   Methods:
     - set_g: Set the value of the gravitational constant g
     - set_r: Set how the length of the pendulum r(t) varies in time
-    - solve: Use scipy's solve_ivp to solve the ode for the chosen g and r(t)
+    - solve: Use scipy's solve_ivp to solve the ode for the chosen g and r(theta, theta_dot)
   '''
   def __init__(self, g: float = 9.81):
     assert isinstance(g, (float, np.floating)), "g should  be a positive float"
@@ -47,8 +47,8 @@ class SwingModel():
     self.r = r
 
     # Finite difference (central diff)
-    self.partialr_partialu = lambda u, v: (r(u + h, v) - r(u - h,v)) / 2*h
-    self.partialr_partialv = lambda u, v: (r(u, v + h) - r(u,v - h)) / 2*h
+    self.partialr_partialu = lambda u, v: (r(u + h, v) - r(u - h,v)) / (2*h)
+    self.partialr_partialv = lambda u, v: (r(u, v + h) - r(u,v - h)) / (2*h)
   
   def _dqdt(self, t, q):
     '''
@@ -75,7 +75,7 @@ class SwingModel():
     Returns:
       - The solve_ivp output
     '''
-    assert r is not None, "No pendulum length function set"
+    assert self.r is not None, "No pendulum length function set"
     assert isinstance(q0, (list, np.ndarray)), f"Expected array, got {type(q0).__name__}"
     assert np.array(q0).shape == (2,), f"Expected shape (2,) for theta and theta_dot, got {q0.shape}"
     assert isinstance(t_eval, (list, np.ndarray)), f"Expected array, got {type(t_eval).__name__}"
@@ -87,6 +87,12 @@ class SwingModel():
     return self.sol
   
   def animate_sol(self):
+    '''
+    Generates an animation of the pendulum once the solution has been generated
+
+    Returns:
+      - ani: the matplotlib animation.FuncAnimation
+    '''
     fig, ax = plt.subplots()
 
     theta = self.sol.y[0, :]
@@ -110,21 +116,24 @@ class SwingModel():
       return mass, rod
     
     ani = animation.FuncAnimation(fig=fig, func=update, frames=len(theta), interval=30)
-    plt.show()
+    return ani
 
 
 
 if __name__ == "__main__":
   # Initialise model
   Swing = SwingModel()
-  
+
   # Define pendulum length as a function of time
   def r(theta, theta_dot):
-    sign = np.sign(theta*theta_dot)
-    return 1 + sign*0.1
+    # The sign variable constrols whether the mass is up or down
+    sign = np.tanh(2*theta*theta_dot)
+    return 1 - sign*0.1
+
   Swing.set_r(r)
 
   # Solve using solve_ivp
-  sol = Swing.solve(t_eval = np.linspace(0, 10, 1000), q0 = [np.pi/2, 0])
+  sol = Swing.solve(t_eval = np.linspace(0, 10, 1000), q0 = [0.5, 0])
 
-  Swing.animate_sol()
+  ani = Swing.animate_sol()
+  plt.show()
