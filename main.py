@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 class SwingModel():
   '''
@@ -16,6 +17,9 @@ class SwingModel():
 
     self.g = g
     self.r = None
+    self.partialr_partialu = None
+    self.partialr_partialu = None
+    self.sol = None
 
   def set_g(self, g):
     '''
@@ -78,22 +82,49 @@ class SwingModel():
 
     t_span = [min(t_eval), max(t_eval)]
 
-    return solve_ivp(self._dqdt, t_span=t_span, t_eval=t_eval, y0=q0, **kwargs)
+    self.sol = solve_ivp(self._dqdt, t_span=t_span, t_eval=t_eval, y0=q0, **kwargs)
+
+    return self.sol
   
+  def animate_sol(self):
+    fig, ax = plt.subplots()
+
+    theta = self.sol.y[0, :]
+    theta_dot = self.sol.y[1, :]
+    r = np.array([self.r(theta[i], theta_dot[i]) for i in range(len(theta))])
+
+    x = r[0] * np.sin(theta[0])
+    y = r[0] * -np.cos(theta[0])
+
+    mass, = ax.plot([x], [y], 'o', markersize=8, color="black")
+    rod = ax.plot([0, x], [0, y], color="black")[0]
+    ax.set(xlim=[-1.1*max(r), 1.1*max(r)], ylim=[-1.1*max(r), 1.1*max(r)])
+    ax.set_aspect("equal")
+
+    def update(frame):
+      x = r[frame] * np.sin(theta[frame])
+      y = r[frame] * -np.cos(theta[frame])
+      mass.set_data([x], [y])
+      rod.set_data([0, x], [0, y])
+
+      return mass, rod
+    
+    ani = animation.FuncAnimation(fig=fig, func=update, frames=len(theta), interval=30)
+    plt.show()
+
+
 
 if __name__ == "__main__":
   # Initialise model
   Swing = SwingModel()
   
   # Define pendulum length as a function of time
-  r = lambda theta, theta_dot: 1
+  def r(theta, theta_dot):
+    sign = np.sign(theta*theta_dot)
+    return 1 + sign*0.1
   Swing.set_r(r)
 
   # Solve using solve_ivp
-  sol = Swing.solve(t_eval = np.linspace(0, 10, 1000), q0 = [.1, 0])
+  sol = Swing.solve(t_eval = np.linspace(0, 10, 1000), q0 = [np.pi/2, 0])
 
-  # Plot solution
-  plt.plot(sol.t, sol.y[0, :])
-  plt.xlabel("time")
-  plt.ylabel("theta")
-  plt.show()
+  Swing.animate_sol()
