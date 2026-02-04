@@ -11,11 +11,12 @@ class SwingModel():
     - set_r: Set how the length of the pendulum r(t) varies in time
     - solve: Use scipy's solve_ivp to solve the ode for the chosen g and r(theta, theta_dot)
   '''
-  def __init__(self, g: float = 9.81):
+  def __init__(self, g: float = 9.81, m: float = 1):
     assert isinstance(g, (float, np.floating)), "g should  be a positive float"
     assert g > 0, "g should be a positive float"
 
     self.g = g
+    self.m = m
     self.r = None
     self.partialr_partialu = None
     self.partialr_partialu = None
@@ -32,7 +33,19 @@ class SwingModel():
     assert g > 0, "g should  be a positive float"
 
     self.g = g
-  
+
+  def set_m(self, m):
+    '''
+    Set the value of the mass m for the problem
+    
+    Arguments:
+      - m: Value of m
+    '''
+    assert isinstance(m, (float, np.floating)), "m should  be a positive float"
+    assert m > 0, "m should  be a positive float"
+
+    self.m = m
+
   def set_r(self, r, h=1e-10):
     '''
     Set the pendulum length function r(theta, theta_dot) as a function of theta, theta_dot.
@@ -49,20 +62,30 @@ class SwingModel():
     # Finite difference (central diff)
     self.partialr_partialu = lambda u, v: (r(u + h, v) - r(u - h,v)) / (2*h)
     self.partialr_partialv = lambda u, v: (r(u, v + h) - r(u,v - h)) / (2*h)
-  
+
   def _dqdt(self, t, q):
     '''
     Internal function for solving the ODE.
     q = [theta, theta_dot]
     
     Arguments:
-      - t: Time at which to evaluate dqdt
+      - t: Time at which to evaluate dq/dt
       - q: Angle and angular velocity at which to evaluate dqdt
     '''
     theta, theta_dot = q
     return np.array([theta_dot, 
                      -(self.g*np.sin(theta) + 2*self.partialr_partialu(theta, theta_dot)*theta_dot**2)/(self.r(theta, theta_dot) + 2*self.partialr_partialv(theta, theta_dot)*theta_dot)])
   
+  def _drdt(self, q):
+    '''
+    Internal function for computing dr/dt
+    '''
+    u, v = q
+    vdot = self._dqdt(None, q=q)[1]
+    udot = q[1]
+
+    return self.partialr_partialu(u, v)*udot + self.partialr_partialv(u, v)*vdot
+
   def solve(self, t_eval, q0, **kwargs):
     '''
     Solve the variable-length pendulum ODE using scipy's solve_ivp
@@ -86,6 +109,20 @@ class SwingModel():
 
     return self.sol
   
+  def energies(self):
+    if self.sol is None:
+      raise RuntimeError("No solution available. Call 'solve' before requesting energies.")
+    
+    theta = self.sol.y[0, :]
+    theta_dot = self.sol.y[1, :]
+    r = np.array([self.r(theta[i], theta_dot[i]) for i in range(len(theta))])
+    rdot = np.array([self._drdt([theta[i], theta_dot[i]]) for i in range(len(theta))])
+
+    KE = (1/2)*self.m*((r*theta_dot)**2 + rdot**2)
+    PE = -self.m*self.g*r*np.cos(theta)
+
+    return KE + PE, KE, PE
+
   def animate_sol(self):
     '''
     Generates an animation of the pendulum once the solution has been generated
@@ -123,7 +160,7 @@ class SwingModel():
 if __name__ == "__main__":
   # Initialise model
   Swing = SwingModel()
-
+  
   # Define pendulum length as a function of time
   def r(theta, theta_dot):
     # The sign variable constrols whether the mass is up or down
@@ -136,4 +173,8 @@ if __name__ == "__main__":
   sol = Swing.solve(t_eval = np.linspace(0, 10, 1000), q0 = [0.5, 0])
 
   ani = Swing.animate_sol()
+  plt.show()
+
+  E, KE, PE = Swing.energies()
+  plt.plot(np.linspace(0, 10, 1000), E)
   plt.show()
