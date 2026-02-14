@@ -232,12 +232,12 @@ class SwingModel():
     ani = animation.FuncAnimation(fig=fig, func=update, frames=len(theta), interval=30)
     return ani
 
-def generate_r(L, delta, k):
+def generate_r(l, delta, k):
 
   sigmoid = lambda x: 1/(1 + np.exp(-x))
 
   def r(u, v):
-    return L - delta*sigmoid(k*u*v)
+    return l - delta*sigmoid(k*u*v)
 
   return r
 
@@ -246,7 +246,7 @@ if __name__ == "__main__":
   Swing = SwingModel()
   
   # Define pendulum length as a function of time
-  r = generate_r(L=1, delta=0.3, k=2)
+  r = generate_r(l=1, delta=0.3, k=2)
   Swing.set_r(r)
 
   # Solve using solve_ivp
