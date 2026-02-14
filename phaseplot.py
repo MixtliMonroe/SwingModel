@@ -28,20 +28,20 @@ if __name__ == "__main__":
 
   fig, ax = plt.subplots()
   fig.tight_layout()
-  ax.quiver(x, y, *DQDT, color="black", alpha=0.3, label=r"$\frac{d\mathbf{q}}{dt}$")
+  ax.quiver(x, y, *DQDT, color="black", alpha=0.3, label=r"$d\mathbf{q}/dt$")
 
   # Closed oscillation solution
   closed_sol = solve(q0=[0, 0.5*thetadot_crit], t_eval=np.linspace(0, (2.5)*np.pi*np.sqrt(l/g), 100), g=g, l=l)
-  plt.plot(*closed_sol, color="C0", label="Closed oscillation solution")
+  plt.plot(*closed_sol, color="C0", label="Closed oscillatory solution")
 
   # Critical solution
   crit_sol = solve(q0=[1e-5-np.pi, 0], t_eval=np.linspace(0, (5.5)*np.pi*np.sqrt(l/g), 100), g=g, l=l)
-  plt.plot(np.append(crit_sol[0], np.pi), np.append(crit_sol[1], 0), color="C1", label="Critical solution")
-  plt.plot(np.append(crit_sol[0], np.pi), -np.append(crit_sol[1], 0), color="C1")
+  plt.plot(np.linspace(-5*np.pi/2, 5*np.pi/2, 500), thetadot_crit*np.cos(np.linspace(-5*np.pi/2, 5*np.pi/2, 500)/2), color="red", label="Separatrix")
+  plt.plot(np.linspace(-5*np.pi/2, 5*np.pi/2, 500), -thetadot_crit*np.cos(np.linspace(-5*np.pi/2, 5*np.pi/2, 500)/2), color="red")
 
   # Open solution
   open_sol = solve(q0=[-5*np.pi/2, 1.4*thetadot_crit], t_eval=np.linspace(0, (3)*np.pi*np.sqrt(l/g), 100), g=g, l=l)
-  plt.plot(open_sol[0][np.where(open_sol[0]<5*np.pi/2)], open_sol[1][np.where(open_sol[0]<5*np.pi/2)], color="C2", label="Open solution")
+  plt.plot(open_sol[0][np.where(open_sol[0]<5*np.pi/2)], open_sol[1][np.where(open_sol[0]<5*np.pi/2)], color="C2", label="Open anti-clockwise rotating solution")
 
   # Plot null lines
   ax.vlines(np.array([-2*np.pi, -np.pi, np.pi, 2*np.pi]), 0, 2*thetadot_crit, color="black", ls="--", lw=1)
@@ -83,6 +83,6 @@ if __name__ == "__main__":
             arrowprops=dict(arrowstyle='->', linewidth=1.2, color='k'),
             clip_on=False)
 
-  plt.legend()
-  plt.savefig("output.png", dpi=1500)
+  plt.legend(loc=3, prop={'size': 9}, framealpha=0.9)
+  plt.savefig("output.png", dpi=1500, bbox_inches="tight")
   plt.show()
