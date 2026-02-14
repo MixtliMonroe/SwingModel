@@ -78,13 +78,59 @@ class SwingModel():
   
   def _drdt(self, q):
     '''
-    Internal function for computing dr/dt
+    Internal function for computing dr/dt.
+    Can accept either scalar values [u, v] or array inputs.
     '''
     u, v = q
-    vdot = self._dqdt(None, q=q)[1]
-    udot = q[1]
+    
+    # Handle array inputs by vectorizing
+    if isinstance(u, np.ndarray):
+      # Flatten arrays for computation
+      u_flat = u.flatten()
+      v_flat = v.flatten()
+      result = np.zeros_like(u_flat, dtype=float)
+      
+      for i in range(len(u_flat)):
+        vdot = self._dqdt(None, q=np.array([u_flat[i], v_flat[i]]))[1]
+        udot = v_flat[i]
+        result[i] = self.partialr_partialu(u_flat[i], v_flat[i])*udot + self.partialr_partialv(u_flat[i], v_flat[i])*vdot
+      
+      return result.reshape(u.shape)
+    else:
+      # Original scalar behavior
+      vdot = self._dqdt(None, q=q)[1]
+      udot = q[1]
+      return self.partialr_partialu(u, v)*udot + self.partialr_partialv(u, v)*vdot
 
-    return self.partialr_partialu(u, v)*udot + self.partialr_partialv(u, v)*vdot
+  def _d2rdt2(self, q, h=1e-4):
+    '''
+    Internal function for computing d2r/dt2.
+    Can accept either scalar values [u, v] or array inputs.
+    '''
+    u, v = q
+    
+    # Finite difference (central diff)
+    partialrdot_partialu = lambda u, v: (self._drdt(np.array([u + h, v])) - self._drdt(np.array([u - h,v]))) / (2*h)
+    partialrdot_partialv = lambda u, v: (self._drdt(np.array([u, v + h])) - self._drdt(np.array([u,v - h]))) / (2*h)
+
+    # Handle array inputs by vectorizing
+    if isinstance(u, np.ndarray):
+      # Flatten arrays for computation
+      u_flat = u.flatten()
+      v_flat = v.flatten()
+      result = np.zeros_like(u_flat, dtype=float)
+      
+      for i in range(len(u_flat)):
+        vdot = self._dqdt(None, q=np.array([u_flat[i], v_flat[i]]))[1]
+        udot = v_flat[i]
+        result[i] = partialrdot_partialu(u_flat[i], v_flat[i])*udot + partialrdot_partialv(u_flat[i], v_flat[i])*vdot
+      
+      return result.reshape(u.shape)
+    else:
+      # Original scalar behavior
+      vdot = self._dqdt(None, q=q)[1]
+      udot = q[1]
+      return partialrdot_partialu(u, v)*udot + partialrdot_partialv(u, v)*vdot
 
   def solve(self, t_eval, q0, **kwargs):
     '''
@@ -116,12 +162,43 @@ class SwingModel():
     theta = self.sol.y[0, :]
     theta_dot = self.sol.y[1, :]
     r = np.array([self.r(theta[i], theta_dot[i]) for i in range(len(theta))])
-    rdot = np.array([self._drdt([theta[i], theta_dot[i]]) for i in range(len(theta))])
+    rdot = self._drdt([theta, theta_dot])
 
     KE = (1/2)*self.m*((r*theta_dot)**2 + rdot**2)
     PE = -self.m*self.g*r*np.cos(theta)
 
     return KE + PE, KE, PE
+
+  def tension(self, q=None, h=1e-4):
+
+    if q is None: # Unspecified state, compute T for the given solution
+      if self.sol is None:
+        raise RuntimeError("No solution available. Call 'solve' before requesting tension.")
+      
+      theta = self.sol.y[0, :]
+      theta_dot = self.sol.y[1, :]
+      r = np.array([self.r(theta[i], theta_dot[i]) for i in range(len(theta))])
+      r_ddot = self._d2rdt2([theta, theta_dot], h=h)
+
+      return self.m*(self.g*np.cos(theta) + r*theta_dot**2 - r_ddot)
+    
+    else: # Compute T for the specified state(s)
+      u, v = q
+
+      # Handle array inputs by vectorizing
+      if isinstance(u, np.ndarray):
+        # Flatten arrays for computation
+        u_flat = u.flatten()
+        v_flat = v.flatten()
+        result = np.zeros_like(u_flat, dtype=float)
+        
+        for i in range(len(u_flat)):
+          result[i] = self.m*(self.g*np.cos(u_flat[i]) + self.r(u_flat[i], v_flat[i])*v_flat[i]**2 - self._d2rdt2(np.array([u_flat[i], v_flat[i]])))
+        
+        return result.reshape(u.shape)
+      
+      else: # Original scalar behavior
+        return self.m*(self.g*np.cos(u) + self.r(u, v)*v**2 - self._d2rdt2(q))
 
   def animate_sol(self):
     '''
@@ -155,26 +232,67 @@ class SwingModel():
     ani = animation.FuncAnimation(fig=fig, func=update, frames=len(theta), interval=30)
     return ani
 
+def generate_r(L, delta, k):
 
+  sigmoid = lambda x: 1/(1 + np.exp(-x))
+
+  def r(u, v):
+    return L - delta*sigmoid(k*u*v)
+
+  return r
 
 if __name__ == "__main__":
   # Initialise model
   Swing = SwingModel()
   
   # Define pendulum length as a function of time
-  def r(theta, theta_dot):
-    # The sign variable constrols whether the mass is up or down
-    sign = np.tanh(2*theta*theta_dot)
-    return 1 - sign*0.1
-
+  r = generate_r(L=1, delta=0.3, k=2)
   Swing.set_r(r)
 
   # Solve using solve_ivp
-  sol = Swing.solve(t_eval = np.linspace(0, 10, 1000), q0 = [0.5, 0])
+  sol = Swing.solve(t_eval = np.linspace(0, 18, 2000), q0 = [0.2, 0])
 
-  ani = Swing.animate_sol()
-  plt.show()
+  if False: # Animation
+    ani = Swing.animate_sol()
+    plt.show()
 
-  E, KE, PE = Swing.energies()
-  plt.plot(np.linspace(0, 10, 1000), E)
-  plt.show()
+  if False: # Phase plane plot
+    theta = sol.y[0, :]
+    thetadot = sol.y[1, :]
+    theta_lims = (-np.max(np.abs(theta))*1.1, np.max(np.abs(theta)*1.1))
+    thetadot_lims = (-np.max(np.abs(thetadot))*1.1, np.max(np.abs(thetadot)*1.1))
+
+    N = 300
+    R = [[r(U, V) for U in np.linspace(*theta_lims, N)] for V in np.linspace(*thetadot_lims, N)]
+    R = np.array(R)
+
+    plt.plot(theta, thetadot, color="black")
+    plt.xlabel(r"$\theta$")
+    plt.xticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi], [r"$-\pi$", r"$-\pi/2$", r"$0$", r"$\pi/2$", r"$\pi$"])
+    plt.xlim(*theta_lims)
+    plt.ylabel(r"$\dot{\theta}$")
+    plt.ylim(*thetadot_lims)
+    plt.imshow(R, extent=[*theta_lims, *thetadot_lims], cmap="jet", aspect=.5)
+    plt.show()
+
+  if False: # Energy plot
+    E, KE, PE = Swing.energies()
+    T = Swing.tension()
+    plt.plot(np.linspace(0, 10, 1000), E, label="Total Energy")
+    plt.plot(np.linspace(0, 10, 1000), KE, label="Kinetic Energy")
+    plt.plot(np.linspace(0, 10, 1000), PE, label="Gravitational Potential Energy")
+    plt.plot(np.linspace(0, 10, 1000), T*1e-1, label="Rod Tension * 1e-1")
+    plt.legend()
+    plt.show()
+
+  if True: # Power
+    N = 300
+    u = np.linspace(-np.pi, np.pi, N)
+    v = np.linspace(-np.pi, np.pi, N)
+    U, V = np.meshgrid(u, v)
+    DRDT = Swing._drdt([U, V])
+    T = Swing.tension([U, V])
+
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    surf = ax.plot_surface(U, V, np.abs(DRDT)*T, antialiased=False)
+    plt.show()
