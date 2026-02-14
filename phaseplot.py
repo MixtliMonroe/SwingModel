@@ -84,5 +84,5 @@ if __name__ == "__main__":
             clip_on=False)
 
   plt.legend(loc=3, prop={'size': 9}, framealpha=0.9)
-  plt.savefig("output.png", dpi=1500, bbox_inches="tight")
+  plt.savefig("img/phaseplot.png", dpi=1500, bbox_inches="tight")
   plt.show()
