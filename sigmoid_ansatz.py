@@ -88,7 +88,7 @@ if __name__ == "__main__":
   Model.set_r(r=r)
 
   # Solve using solve_ivp
-  sol = Model.solve(t_eval = np.arange(0, 20, 1e-3), q0 = [0.2, 0.2])
+  sol = Model.solve(t_eval = np.arange(0, 30, 1e-3), q0 = [0.2, 0.2])
   theta = sol.y[0, :]
   theta_dot = sol.y[1, :]
   t = sol.t
@@ -98,13 +98,14 @@ if __name__ == "__main__":
   theta = theta[key]
   theta_dot = theta_dot[key]
   t = t[key]
-  R = r(theta, theta_dot)
 
   if False: # Animation
     ani = Model.animate_sol()
     plt.show()
   
-  if True: # Plot solution on phase plane
+  if False: # Plot solution on phase plane
+    R = r(theta, theta_dot)
+
     fig, ax = plt.subplots()
     fig.tight_layout()
 
@@ -117,13 +118,6 @@ if __name__ == "__main__":
             arrowprops=dict(arrowstyle='->', linewidth=1.2, color='k'),
             clip_on=False)
 
-    # Plot vector plot
-    x = np.linspace(-np.pi, np.pi, 50)
-    y = np.linspace(-1.1*max(theta_dot), 1.1*max(theta_dot), 50)
-    X, Y = np.meshgrid(x, y)
-    DQDT = Model._dqdt(t=None, q=[X, Y])
-    ax.quiver(x, y, *DQDT, color="black", alpha=0.3, label=r"$d\mathbf{q}/dt$")
-
     # Plot separatrices
     thetadot_crit_crouch = 2*np.sqrt(g/l)
     thetadot_crit_stand =  2*np.sqrt(g/(l-delta))
@@ -131,6 +125,13 @@ if __name__ == "__main__":
     plt.plot(np.linspace(-np.pi, 0, 500), -thetadot_crit_stand*np.cos(np.linspace(-np.pi, 0, 500)/2), color="black", ls="--")
     plt.plot(np.linspace(0, np.pi, 500),  -thetadot_crit_crouch*np.cos(np.linspace(0, np.pi, 500)/2), color="black", ls="--")
     plt.plot(np.linspace(0, np.pi, 500),  thetadot_crit_stand*np.cos(np.linspace(0, np.pi, 500)/2),   color="black", ls="--")
+
+    # Plot vector plot
+    x = np.linspace(-np.pi, np.pi, 50)
+    y = np.linspace(-1.1*3*thetadot_crit_crouch/2, 1.1*3*thetadot_crit_crouch/2, 50)
+    X, Y = np.meshgrid(x, y)
+    DQDT = Model._dqdt(t=None, q=[X, Y])
+    ax.quiver(x, y, *DQDT, color="black", alpha=0.3, label=r"$d\mathbf{q}/dt$")
 
     # Set axis ticks and labels
     ax.set_xlim(-np.pi, np.pi)
@@ -170,3 +171,32 @@ if __name__ == "__main__":
 
     plt.savefig("img/phaseplane_ansatz1.png", dpi=1500, bbox_inches="tight")
     plt.show()
+
+  if True: # Plot drdt
+    fig, ax = plt.subplots()
+    fig.tight_layout()
+
+    DRDT = Model._drdt(np.array([theta, theta_dot]))
+
+    # Set axis limits, ticks and labels
+    ax.set_ylim(-1.1*max(np.abs(DRDT)), 1.1*max(np.abs(DRDT)))
+    ax.set_yticks(list(range(-30,40,10)), [str(i) for i in range(-30,40,10)])
+    ax.set_ylabel(r"$\dot{r}$")
+
+    ax.set_xlim(0, max(t))
+    ax.set_xticks([2,4,6,8,10], [str(i) for i in range(2,12,2)])
+    ax.set_xlabel("t")
+    ax.xaxis.set_label_coords(1, 0.45)
+
+    # Move bottom x-axis to centre, passing through (0,0)
+    ax.spines['bottom'].set_position('center')
+
+    # Eliminate upper and right axes
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+
+    ax.plot(t, DRDT, color="black")
+    plt.savefig("img/drdt_ansatz1.png", dpi=1500, bbox_inches="tight")
+    plt.show()
+
+       
