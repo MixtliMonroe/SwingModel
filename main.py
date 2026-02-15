@@ -229,7 +229,7 @@ class SwingModel():
 
       return mass, rod
     
-    ani = animation.FuncAnimation(fig=fig, func=update, frames=len(theta), interval=30)
+    ani = animation.FuncAnimation(fig=fig, func=update, frames=len(theta), interval=10)
     return ani
 
 def generate_r(l, delta, k):
