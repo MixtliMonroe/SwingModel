@@ -103,7 +103,7 @@ if __name__ == "__main__":
     ani = Model.animate_sol()
     plt.show()
   
-  if False: # Plot solution on phase plane
+  if True: # Plot solution on phase plane
     R = r(theta, theta_dot)
 
     fig, ax = plt.subplots()
@@ -169,10 +169,10 @@ if __name__ == "__main__":
               arrowprops=dict(arrowstyle='->', linewidth=1.2, color='k'),
               clip_on=False)
 
-    plt.savefig("img/phaseplane_ansatz1.png", dpi=1500, bbox_inches="tight")
+    plt.savefig("img/phaseplane_ansatz.png", dpi=1500, bbox_inches="tight")
     plt.show()
 
-  if True: # Plot drdt
+  if False: # Plot drdt
     fig, ax = plt.subplots()
     fig.tight_layout()
 
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     ax.spines['top'].set_color('none')
 
     ax.plot(t, DRDT, color="black")
-    plt.savefig("img/drdt_ansatz1.png", dpi=1500, bbox_inches="tight")
+    plt.savefig("img/drdt_ansatz.png", dpi=1500, bbox_inches="tight")
     plt.show()
 
        
